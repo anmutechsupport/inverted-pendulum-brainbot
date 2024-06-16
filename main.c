@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <mpu6050.h>
 
 /* USER CODE END Includes */
 
@@ -116,28 +117,8 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  printf("running user code\n");
-
-  HAL_StatusTypeDef ret = HAL_I2C_IsDeviceReady(&hi2c1, (0b1101000 <<1)+0, 1, 100);
-  if (ret == HAL_OK)
-  {
-	  printf("The device is ready \n");
-  }
-  else
-  {
-	  printf("The device is not ready. Check cables \n");
-  }
-
-  uint8_t temp_data = 0b00001000;
-  ret = HAL_I2C_Mem_Write(&hi2c1, (0b1101000 <<1)+0, 27, 1, &temp_data, 1, 100);
-  if (ret == HAL_OK)
-   {
- 	  printf("writing to register 27 \n");
-   }
-   else
-   {
- 	  printf("Failed writing to the register \n");
-   }
+  printf("running user code 2\n");
+  mpu6050_init();
 
   /* USER CODE END 2 */
 
@@ -146,8 +127,11 @@ int main(void)
   while (1)
   {
 
-	printf("Hello World\n");
-	HAL_Delay(1000);
+//	printf("Hello World\n");
+//	HAL_Delay(1000);
+
+	 mpu6050_read();
+	 HAL_Delay(1000);
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
