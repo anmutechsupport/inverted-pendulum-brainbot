@@ -58,12 +58,38 @@ void mpu6050_init()
 	}
 }
 
-void mpu6050_read()
+ReadVec mpu6050_read_gyro()
 {
-	uint8_t data[2];
-	int16_t x_acc;
-	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_DATA, 1, data, 2, 100);
-	x_acc = ((int16_t)data[0] << 8) + data[1];
-	printf("x axis acceleration: %d \n", x_acc);
+	uint8_t data[6];
+	ReadVec gyro_data;
+
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_GYRO_DATA, 1, data, 6, 100);
+	gyro_data.x = ((int16_t)data[0] << 8) + data[1];
+	gyro_data.y = ((int16_t)data[2] << 8) + data[3];
+	gyro_data.z = ((int16_t)data[4] << 8) + data[5];
+
+	printf("x axis gyro: %d \n", gyro_data.x);
+	printf("y axis gyro: %d \n", gyro_data.y);
+	printf("z axis gyro: %d \n\n", gyro_data.z);
+
+	return gyro_data;
+
+}
+
+ReadVec mpu6050_read_acc()
+{
+	uint8_t data[6];
+	ReadVec acc_data;
+
+	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_ACC_DATA, 1, data, 6, 100);
+	acc_data.x = ((int16_t)data[0] << 8) + data[1];
+	acc_data.y = ((int16_t)data[2] << 8) + data[3];
+	acc_data.z = ((int16_t)data[4] << 8) + data[5];
+
+	printf("x axis acc: %d \n", acc_data.x);
+	printf("y axis acc: %d \n", acc_data.y);
+	printf("z axis acc: %d \n\n", acc_data.z);
+
+	return acc_data;
 
 }

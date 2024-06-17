@@ -130,7 +130,8 @@ int main(void)
 //	printf("Hello World\n");
 //	HAL_Delay(1000);
 
-	 mpu6050_read();
+	 ReadVec gyro_data = mpu6050_read_gyro();
+	 ReadVec acc_data = mpu6050_read_acc();
 	 HAL_Delay(1000);
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
