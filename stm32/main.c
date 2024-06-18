@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <stdlib.h>
 #include <mpu6050.h>
 
 /* USER CODE END Includes */
@@ -88,15 +89,31 @@ void MX_USB_HOST_Process(void);
 uint16_t max_pwm = 1000;
 uint16_t min_pwm = 0;
 
-// main vars
+// IMU vars
 float acc_pitch;
 float acc_roll;
 float gyro_pitch;
 float gyro_roll;
 float filtered_pitch;
-float filtered_roll;
+float filtered_roll; // roll is what matters
 ReadVec gyro_data;
 ReadVec acc_data;
+
+// PID parameters
+float setpoint = 0.00; // WRT roll
+float error = 0;
+float lastError = 0;
+
+float Kp = 2.5;
+float Ki = 0.01;
+float Kd = 0.01;
+
+float P;
+float I;
+float D;
+
+// kill
+int kill = 0;
 
 /* USER CODE END 0 */
 
@@ -144,38 +161,112 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	 if (kill == 0)
+	 {
+		 mpu6050_read_gyro(&gyro_data);
+		 mpu6050_read_acc(&acc_data);
+		 mpu6050_acc_angles(&acc_data, &acc_pitch, &acc_roll);
+	//	 mpu6050_gyro_angles(&gyro_data, &gyroPitch, &gyroRoll);
+		 mpu6050_complementary_filter(&gyro_data, &acc_pitch, &acc_roll, &filtered_pitch, &filtered_roll);
 
-//	printf("Hello World\n");
-//	HAL_Delay(1000);
+		 error = setpoint - filtered_roll;
+		 printf("error: %f \n", error);
 
-	 mpu6050_read_gyro(&gyro_data);
-	 mpu6050_read_acc(&acc_data);
-	 mpu6050_acc_angles(&acc_data, &acc_pitch, &acc_roll);
-//	 mpu6050_gyro_angles(&gyro_data, &gyroPitch, &gyroRoll);
-	 mpu6050_complementary_filter(&gyro_data, &acc_pitch, &acc_roll, &filtered_pitch, &filtered_roll);
+		 P = Kp * error;
 
-	 HAL_Delay(20);
+		 I += (Ki * error);
+		 if (I > max_pwm)
+				I = max_pwm;
+		 else if (I < -max_pwm)
+			I = -max_pwm;
+
+
+		 D = -Kd * (error - lastError);
+	//	 D = Kd * abs(error-lasError);
+
+		 // total PID value
+		 float pid_pwm = abs(P + I + D) + 250; // added bias
+
+		 uint16_t out_pwm;
+		 if (pid_pwm > max_pwm)
+			out_pwm = max_pwm;
+	//	 else if (pid_pwm < -max_pwm)
+	//		out_pwm = -max_pwm;
+		 else
+			out_pwm = (uint16_t) pid_pwm;
+
+		 printf("out_pwm: %d \n", out_pwm);
+
+		 lastError = error;
+
+		 // set motor PWM
+
+		 if (error > 0.0)
+		 {
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, out_pwm);
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, out_pwm);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
+		 }
+		 else
+		 {
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 0);
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, out_pwm);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 0);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, out_pwm);
+		 }
+
+		 if (abs(error) > 30)
+		 {
+			  kill = 1;
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 0);
+			  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 0);
+			  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
+		 }
+
+		 HAL_Delay(20);
+	 }
 
 //	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 300);
-//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
 //	  HAL_Delay(2000);
 //	  // Set the speed medium
 //	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 500);
-//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
 //	  HAL_Delay(2000);
 //	  // Set the speed high
 //	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 1000);
-//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
 //	  HAL_Delay(2000);
 //	  // Stop
 //	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 0);
-//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_1, 0);
+//	  HAL_Delay(2000);
+//
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 300);
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
+//	  HAL_Delay(2000);
+//	  // Set the speed medium
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 500);
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
+//	  HAL_Delay(2000);
+//	  // Set the speed high
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 1000);
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
+//	  HAL_Delay(2000);
+//	  // Stop
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_2, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim3,TIM_CHANNEL_1, 0);
 //	  HAL_Delay(2000);
 
     /* USER CODE END WHILE */
