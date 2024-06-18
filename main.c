@@ -85,8 +85,18 @@ void MX_USB_HOST_Process(void);
 //}
 
 //PWM MIN/MAX BOUNDS
-uint16_t maxPwm = 1000;
-uint16_t minPwm = 0;
+uint16_t max_pwm = 1000;
+uint16_t min_pwm = 0;
+
+// main vars
+float acc_pitch;
+float acc_roll;
+float gyro_pitch;
+float gyro_roll;
+float filtered_pitch;
+float filtered_roll;
+ReadVec gyro_data;
+ReadVec acc_data;
 
 /* USER CODE END 0 */
 
@@ -144,25 +154,29 @@ int main(void)
 //	printf("Hello World\n");
 //	HAL_Delay(1000);
 
-//	 ReadVec gyro_data = mpu6050_read_gyro();
-//	 ReadVec acc_data = mpu6050_read_acc();
-//	 HAL_Delay(1000);
+	 mpu6050_read_gyro(&gyro_data);
+	 mpu6050_read_acc(&acc_data);
+	 mpu6050_acc_angles(&acc_data, &acc_pitch, &acc_roll);
+//	 mpu6050_gyro_angles(&gyro_data, &gyroPitch, &gyroRoll);
+	 mpu6050_complementary_filter(&gyro_data, &acc_pitch, &acc_roll, &filtered_pitch, &filtered_roll);
 
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 300);
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
-	  HAL_Delay(2000);
-	  // Set the speed medium
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 500);
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
-	  HAL_Delay(2000);
-	  // Set the speed high
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 1000);
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
-	  HAL_Delay(2000);
-	  // Stop
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 0);
-	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
-	  HAL_Delay(2000);
+	 HAL_Delay(20);
+
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 300);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  HAL_Delay(2000);
+//	  // Set the speed medium
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 500);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  HAL_Delay(2000);
+//	  // Set the speed high
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 1000);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  HAL_Delay(2000);
+//	  // Stop
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2, 0);
+//	  __HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_3, 0);
+//	  HAL_Delay(2000);
 
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();

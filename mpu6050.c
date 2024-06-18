@@ -7,8 +7,6 @@
 
 
 #include <mpu6050.h>
-#include <main.h>
-#include <stdio.h>
 
 extern I2C_HandleTypeDef hi2c1;
 
@@ -58,38 +56,116 @@ void mpu6050_init()
 	}
 }
 
-ReadVec mpu6050_read_gyro()
+void mpu6050_read_gyro(ReadVec *gyro_data)
 {
 	uint8_t data[6];
-	ReadVec gyro_data;
+//	ReadVec gyro_data;
 
 	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_GYRO_DATA, 1, data, 6, 100);
-	gyro_data.x = ((int16_t)data[0] << 8) + data[1];
-	gyro_data.y = ((int16_t)data[2] << 8) + data[3];
-	gyro_data.z = ((int16_t)data[4] << 8) + data[5];
+//	gyro_data.x = (((int16_t)data[0] << 8) + data[1]) / G_R;
+//	gyro_data.y = (((int16_t)data[2] << 8) + data[3]) / G_R;
+//	gyro_data.z = (((int16_t)data[4] << 8) + data[5]) / G_R;
+//
+//	printf("x axis gyro: %f \n", gyro_data.x);
+//	printf("y axis gyro: %f \n", gyro_data.y);
+//	printf("z axis gyro: %f \n\n", gyro_data.z);
 
-	printf("x axis gyro: %d \n", gyro_data.x);
-	printf("y axis gyro: %d \n", gyro_data.y);
-	printf("z axis gyro: %d \n\n", gyro_data.z);
+	gyro_data->x = (((int16_t)data[0] << 8) + data[1]);
+	gyro_data->y = (((int16_t)data[2] << 8) + data[3]);
+	gyro_data->z = (((int16_t)data[4] << 8) + data[5]);
 
-	return gyro_data;
+//	printf("x axis gyro: %d \n", gyro_data->x);
+//	printf("y axis gyro: %d \n", gyro_data->y);
+//	printf("z axis gyro: %d \n\n", gyro_data->z);
+
+
+//	return gyro_data;
 
 }
 
-ReadVec mpu6050_read_acc()
+void mpu6050_read_acc(ReadVec *acc_data)
 {
 	uint8_t data[6];
-	ReadVec acc_data;
+//	ReadVec acc_data;
 
 	HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_ACC_DATA, 1, data, 6, 100);
-	acc_data.x = ((int16_t)data[0] << 8) + data[1];
-	acc_data.y = ((int16_t)data[2] << 8) + data[3];
-	acc_data.z = ((int16_t)data[4] << 8) + data[5];
+//	acc_data.x = (((int16_t)data[0] << 8) + data[1]) / A_R;
+//	acc_data.y = (((int16_t)data[2] << 8) + data[3]) / A_R;
+//	acc_data.z = (((int16_t)data[4] << 8) + data[5]) / A_R;
+//
+//	printf("x axis acc: %f \n", acc_data.x);
+//	printf("y axis acc: %f \n", acc_data.y);
+//	printf("z axis acc: %f \n\n", acc_data.z);
 
-	printf("x axis acc: %d \n", acc_data.x);
-	printf("y axis acc: %d \n", acc_data.y);
-	printf("z axis acc: %d \n\n", acc_data.z);
+	acc_data->x = (((int16_t)data[0] << 8) + data[1]);
+	acc_data->y = (((int16_t)data[2] << 8) + data[3]);
+	acc_data->z = (((int16_t)data[4] << 8) + data[5]);
 
-	return acc_data;
+//	printf("x axis acc: %d \n", acc_data->x);
+//	printf("y axis acc: %d \n", acc_data->y);
+//	printf("z axis acc: %d \n\n", acc_data->z);
+
+//	return acc_data;
 
 }
+
+void mpu6050_example_read()
+{
+	uint8_t data[2];
+	int16_t x_acc;
+
+	HAL_I2C_Mem_Read(&hi2c1, (DEVICE_ADDRESS <<1)+1, REG_ACC_DATA, 1, data, 2, 100);
+	x_acc = ((int16_t)data[0] << 8) + data[1];
+	printf("x axis acceleration: %d \n", x_acc);
+}
+
+void mpu6050_acc_angles(ReadVec *acc_data, float *pitch, float* roll) {
+	*pitch = atan2((float)acc_data->y, (float)acc_data->z) * RAD2DEG;
+	*roll = atan2((float)acc_data->x, (float)acc_data->z) * RAD2DEG;
+	printf("acc pitch is: %f \n", *pitch);
+	printf("acc roll is: %f \n\n", *roll);
+}
+
+void mpu6050_gyro_angles(ReadVec *gyro_data, float *pitch, float *roll) {
+	static float total_pitch = 0;
+	static float total_roll = 0;
+
+	total_pitch += (float) gyro_data->x * (G);
+	total_roll += (float) gyro_data->y * (G);
+
+	*pitch = total_pitch;
+	*roll = total_roll;
+
+	printf("gyro pitch is: %f \n", *pitch);
+	printf("gyro roll is: %f \n\n", *roll);
+}
+
+void mpu6050_complementary_filter(ReadVec *gyro_data, float *acc_pitch, float *acc_roll, float *filtered_pitch, float*filtered_roll) {
+	static bool first_run = true;
+	static float total_pitch = 0;
+	static float total_roll = 0;
+
+	total_pitch += (float) gyro_data->x * (G);
+	total_roll += (float) gyro_data->y * (G);
+
+	if (first_run)
+	{
+		total_pitch = *acc_pitch;
+		total_roll = *acc_roll;
+
+		first_run = false;
+	}
+	else
+	{
+		total_pitch = total_pitch * Tau + *acc_pitch * (1-Tau);
+		total_roll = total_roll * Tau + *acc_roll * (1-Tau);
+	}
+
+	*filtered_pitch = total_pitch;
+	*filtered_roll = total_roll;
+
+	printf("filtered pitch is: %f \n", *filtered_pitch);
+	printf("filtered roll is: %f \n\n", *filtered_roll);
+
+}
+
